@@ -59,9 +59,9 @@
   const splinePath = $derived.by(() => {
     const pts = activePoints;
     if (pts.length === 0) return "";
-    let path = `M ${pts[0].x * 256} ${(1 - pts[0].y) * 192}`;
+    let path = `M ${pts[0].x * 256} ${(1 - pts[0].y) * 256}`;
     if (pts.length === 2) {
-      path += ` L ${pts[1].x * 256} ${(1 - pts[1].y) * 192}`;
+      path += ` L ${pts[1].x * 256} ${(1 - pts[1].y) * 256}`;
       return path;
     }
     for (let i = 0; i < pts.length - 1; i++) {
@@ -73,12 +73,18 @@
       const cp1y = p1.y + (p2.y - p0.y) / 6;
       const cp2x = p2.x - (p3.x - p1.x) / 6;
       const cp2y = p2.y - (p3.y - p1.y) / 6;
-      path += ` C ${cp1x * 256} ${(1 - cp1y) * 192}, ${cp2x * 256} ${(1 - cp2y) * 192}, ${p2.x * 256} ${(1 - p2.y) * 192}`;
+      path += ` C ${cp1x * 256} ${(1 - cp1y) * 256}, ${cp2x * 256} ${(1 - cp2y) * 256}, ${p2.x * 256} ${(1 - p2.y) * 256}`;
     }
     return path;
   });
 
   let draggedIndex = $state<number | null>(null);
+  let dragAxis = $state<'x' | 'y' | null>(null);
+  let dragStartPoint = $state<{ x: number; y: number } | null>(null);
+  let dragStartMouse = $state<{ x: number; y: number } | null>(null);
+  let selectedPointIndex = $state<number | null>(null);
+  let pointInputX = $state<number>(0);
+  let pointInputY = $state<number>(0);
 
   function payload(pts: { x: number; y: number }[]): [number, number][] | [] {
     const isIdentity =
@@ -102,27 +108,56 @@
     e.preventDefault();
     if ($selectedMask) beginMaskAdjust();
     draggedIndex = index;
+    dragAxis = null;
+    dragStartPoint = { ...activePoints[index] };
+    dragStartMouse = { x: e.clientX, y: e.clientY };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
 
   function handlePointerMove(e: PointerEvent) {
-    if (draggedIndex === null) return;
+    if (draggedIndex === null || !dragStartPoint || !dragStartMouse) return;
     const svgElement = e.currentTarget as SVGSVGElement;
     const rect = svgElement.getBoundingClientRect();
     const currentX = (e.clientX - rect.left) / rect.width;
     const currentY = 1 - (e.clientY - rect.top) / rect.height;
     const updated = [...activePoints];
     const pt = { ...updated[draggedIndex] };
-    pt.y = Math.max(0, Math.min(1, currentY));
-    if (draggedIndex === 0) pt.x = 0;
-    else if (draggedIndex === activePoints.length - 1) pt.x = 1;
-    else {
+
+    const isFirst = draggedIndex === 0;
+    const isLast = draggedIndex === activePoints.length - 1;
+
+    if (isFirst || isLast) {
+      if (dragAxis === null) {
+        const mouseDx = Math.abs(e.clientX - dragStartMouse.x);
+        const mouseDy = Math.abs(e.clientY - dragStartMouse.y);
+        if (mouseDx > 3 || mouseDy > 3) {
+          dragAxis = mouseDx > mouseDy ? 'x' : 'y';
+        }
+      }
+      if (dragAxis === 'x') {
+        pt.y = dragStartPoint.y;
+        if (isFirst) pt.x = Math.max(0, Math.min(0.5, currentX));
+        else pt.x = Math.max(0.5, Math.min(1, currentX));
+      } else if (dragAxis === 'y') {
+        pt.x = dragStartPoint.x;
+        pt.y = Math.max(0, Math.min(1, currentY));
+      } else {
+        // Not decided yet — keep original position
+        pt.x = dragStartPoint.x;
+        pt.y = dragStartPoint.y;
+      }
+    } else {
+      pt.y = Math.max(0, Math.min(1, currentY));
       const minX = updated[draggedIndex - 1].x + 0.05;
       const maxX = updated[draggedIndex + 1].x - 0.05;
       pt.x = Math.max(minX, Math.min(maxX, currentX));
     }
     updated[draggedIndex] = pt;
     pointsByChannel[$curveChannel] = updated;
+    // Real-time preview during drag
+    void setParam(PATH[$curveChannel], payload(updated))
+      .then(reconcile)
+      .catch(() => {});
   }
 
   function stopDrag(e: PointerEvent) {
@@ -133,12 +168,14 @@
         /* ignore */
       }
       draggedIndex = null;
-      commit();
+      dragAxis = null;
+      dragStartPoint = null;
+      dragStartMouse = null;
       if ($selectedMask) endMaskAdjust();
     }
   }
 
-  function handleSvgPointerDown(e: PointerEvent) {
+  function handleSvgDoubleClick(e: MouseEvent) {
     if ((e.target as SVGElement).tagName === "circle") return;
     const svgElement = e.currentTarget as SVGSVGElement;
     const rect = svgElement.getBoundingClientRect();
@@ -150,8 +187,7 @@
     updated.splice(insertIdx, 0, { x, y });
     pointsByChannel[$curveChannel] = updated;
     if ($selectedMask) beginMaskAdjust();
-    draggedIndex = insertIdx;
-    svgElement.setPointerCapture(e.pointerId);
+    commit();
   }
 
   function removePoint(index: number) {
@@ -159,28 +195,107 @@
     const updated = [...activePoints];
     updated.splice(index, 1);
     pointsByChannel[$curveChannel] = updated;
+    if (selectedPointIndex === index) {
+      selectedPointIndex = null;
+    } else if (selectedPointIndex !== null && selectedPointIndex > index) {
+      selectedPointIndex--;
+    }
     commit();
+  }
+
+  function selectPoint(index: number) {
+    selectedPointIndex = index;
+    const pt = activePoints[index];
+    pointInputX = Math.round(pt.x * 255);
+    pointInputY = Math.round((1 - pt.y) * 255);
+  }
+
+  function updatePointInput(field: 'x' | 'y', value: string) {
+    if (selectedPointIndex === null) return;
+    const num = Math.max(0, Math.min(255, parseInt(value) || 0));
+    if (field === 'x') {
+      pointInputX = num;
+    } else {
+      pointInputY = num;
+    }
+    const updated = [...activePoints];
+    const pt = { ...updated[selectedPointIndex] };
+    const isFirst = selectedPointIndex === 0;
+    const isLast = selectedPointIndex === activePoints.length - 1;
+
+    if (field === 'x') {
+      pt.x = num / 255;
+      // For endpoints, maintain axis constraint
+      if (isFirst) {
+        pt.x = Math.max(0, Math.min(0.5, pt.x));
+        pt.y = 0;
+      } else if (isLast) {
+        pt.x = Math.max(0.5, Math.min(1, pt.x));
+        pt.y = 1;
+      }
+    } else {
+      pt.y = 1 - num / 255;
+      if (isFirst) {
+        pt.x = 0;
+        pt.y = Math.max(0, Math.min(1, pt.y));
+      } else if (isLast) {
+        pt.x = 1;
+        pt.y = Math.max(0, Math.min(1, pt.y));
+      }
+    }
+    updated[selectedPointIndex] = pt;
+    pointsByChannel[$curveChannel] = updated;
+    void setParam(PATH[$curveChannel], payload(updated))
+      .then(reconcile)
+      .catch(() => {});
+  }
+
+  function handlePointInputBlur(field: 'x' | 'y') {
+    // Sync displayed value to actual clamped value
+    if (selectedPointIndex !== null) {
+      const pt = activePoints[selectedPointIndex];
+      pointInputX = Math.round(pt.x * 255);
+      pointInputY = Math.round((1 - pt.y) * 255);
+    }
   }
 </script>
 
 <CollapsibleSection id="curve" title="Tone Curve">
 <div class="curve">
+  <div class="dots">
+    {#each channels as ch (ch.id)}
+      <button
+        aria-label="{ch.id} channel"
+        class="dot"
+        class:on={$curveChannel === ch.id}
+        style="background: {ch.color}"
+        onclick={() => curveChannel.set(ch.id)}
+      ></button>
+    {/each}
+  </div>
+
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="canvas">
-    <svg
-      viewBox="0 0 256 192"
-      class="svg"
-      onpointerdown={handleSvgPointerDown}
-      onpointermove={handlePointerMove}
-      onpointerup={stopDrag}
-      onpointercancel={stopDrag}
-    >
-      <line x1="64" y1="0" x2="64" y2="192" stroke="white" stroke-opacity="0.05" stroke-dasharray="2 2" />
-      <line x1="128" y1="0" x2="128" y2="192" stroke="white" stroke-opacity="0.05" stroke-dasharray="2 2" />
-      <line x1="192" y1="0" x2="192" y2="192" stroke="white" stroke-opacity="0.05" stroke-dasharray="2 2" />
-      <line x1="0" y1="48" x2="256" y2="48" stroke="white" stroke-opacity="0.05" stroke-dasharray="2 2" />
-      <line x1="0" y1="96" x2="256" y2="96" stroke="white" stroke-opacity="0.05" stroke-dasharray="2 2" />
-      <line x1="0" y1="144" x2="256" y2="144" stroke="white" stroke-opacity="0.05" stroke-dasharray="2 2" />
+    <div class="svg-wrapper">
+      <svg
+        viewBox="0 0 256 256"
+        class="svg"
+        ondblclick={handleSvgDoubleClick}
+        onpointermove={handlePointerMove}
+        onpointerup={stopDrag}
+        onpointercancel={stopDrag}
+        onclick={() => {
+          selectedPointIndex = null;
+          pointInputX = 0;
+          pointInputY = 0;
+        }}
+      >
+      <line x1="64" y1="0" x2="64" y2="256" stroke="white" stroke-opacity="0.05" stroke-dasharray="2 2" />
+      <line x1="128" y1="0" x2="128" y2="256" stroke="white" stroke-opacity="0.05" stroke-dasharray="2 2" />
+      <line x1="192" y1="0" x2="192" y2="256" stroke="white" stroke-opacity="0.05" stroke-dasharray="2 2" />
+      <line x1="0" y1="64" x2="256" y2="64" stroke="white" stroke-opacity="0.05" stroke-dasharray="2 2" />
+      <line x1="0" y1="128" x2="256" y2="128" stroke="white" stroke-opacity="0.05" stroke-dasharray="2 2" />
+      <line x1="0" y1="192" x2="256" y2="192" stroke="white" stroke-opacity="0.05" stroke-dasharray="2 2" />
       <path
         d={splinePath}
         fill="none"
@@ -192,10 +307,14 @@
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <circle
           cx={p.x * 256}
-          cy={(1 - p.y) * 192}
-          r={draggedIndex === i ? 5.5 : 4}
+          cy={(1 - p.y) * 256}
+          r={draggedIndex === i ? 5.5 : selectedPointIndex === i ? 5.5 : 4}
           class="cursor-pointer fill-fg stroke-black/60 stroke-[1.5px] transition-all duration-100 hover:fill-[#a8a8a8] active:fill-[#8c8c8c]"
           onpointerdown={(e) => startDrag(e, i)}
+          onclick={(e) => {
+            e.stopPropagation();
+            selectPoint(i);
+          }}
           ondblclick={(e) => {
             e.stopPropagation();
             removePoint(i);
@@ -208,18 +327,34 @@
         />
       {/each}
     </svg>
+    </div>
   </div>
 
-  <div class="dots">
-    {#each channels as ch (ch.id)}
-      <button
-        aria-label="{ch.id} channel"
-        class="dot"
-        class:on={$curveChannel === ch.id}
-        style="background: {ch.color}"
-        onclick={() => curveChannel.set(ch.id)}
-      ></button>
-    {/each}
+  <div class="point-inputs">
+    <label>
+      <span>Input</span>
+      <input
+        type="number"
+        min="0"
+        max="255"
+        value={pointInputX}
+        oninput={(e) => updatePointInput('x', e.currentTarget.value)}
+        onblur={() => handlePointInputBlur('x')}
+        onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); }}
+      />
+    </label>
+    <label>
+      <span>Output</span>
+      <input
+        type="number"
+        min="0"
+        max="255"
+        value={pointInputY}
+        oninput={(e) => updatePointInput('y', e.currentTarget.value)}
+        onblur={() => handlePointInputBlur('y')}
+        onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); }}
+      />
+    </label>
   </div>
 </div>
 </CollapsibleSection>
@@ -228,22 +363,26 @@
   .curve { display: flex; flex-direction: column; gap: var(--space-2); }
   .canvas {
     width: 100%;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 1 / 1;
     position: relative;
     overflow: hidden;
-    border-radius: 8px;
+    border-radius: 0;
     border: 1px solid var(--color-border);
     background: var(--color-active);
     touch-action: none;
     user-select: none;
   }
-  .svg { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+  .svg-wrapper {
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+  }
+  .svg { width: 100%; height: 100%; cursor: crosshair; }
   .dots {
     display: flex;
-    align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    min-height: 28px;
+    padding: var(--space-1) 0;
   }
   .dot {
     width: 9px;
@@ -258,5 +397,42 @@
     opacity: 1;
     outline: 1px solid var(--color-fg);
     outline-offset: 2px;
+  }
+  .point-inputs {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-2);
+    background: var(--color-sunken);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    font-size: var(--text-group);
+  }
+  .point-inputs label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .point-inputs span {
+    color: var(--color-subtle);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 10px;
+  }
+  .point-inputs input {
+    width: 60px;
+    height: 28px;
+    border: 1px solid var(--color-border-strong);
+    border-radius: 6px;
+    background: var(--color-active);
+    color: var(--color-fg);
+    font-size: var(--text-ui);
+    font-family: var(--font-mono);
+    text-align: center;
+    padding: 0 8px;
+  }
+  .point-inputs input:focus {
+    outline: none;
+    border-color: var(--color-fg);
   }
 </style>
