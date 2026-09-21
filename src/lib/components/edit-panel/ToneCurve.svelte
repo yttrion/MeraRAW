@@ -207,7 +207,7 @@
     selectedPointIndex = index;
     const pt = activePoints[index];
     pointInputX = Math.round(pt.x * 255);
-    pointInputY = Math.round((1 - pt.y) * 255);
+    pointInputY = Math.round(pt.y * 255);
   }
 
   function updatePointInput(field: 'x' | 'y', value: string) {
@@ -234,7 +234,7 @@
         pt.y = 1;
       }
     } else {
-      pt.y = 1 - num / 255;
+      pt.y = num / 255;
       if (isFirst) {
         pt.x = 0;
         pt.y = Math.max(0, Math.min(1, pt.y));
@@ -255,7 +255,7 @@
     if (selectedPointIndex !== null) {
       const pt = activePoints[selectedPointIndex];
       pointInputX = Math.round(pt.x * 255);
-      pointInputY = Math.round((1 - pt.y) * 255);
+      pointInputY = Math.round(pt.y * 255);
     }
   }
 </script>
@@ -434,5 +434,14 @@
   .point-inputs input:focus {
     outline: none;
     border-color: var(--color-fg);
+  }
+  /* Hide spinner arrows on number inputs */
+  .point-inputs input::-webkit-outer-spin-button,
+  .point-inputs input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .point-inputs input[type=number] {
+    -moz-appearance: textfield;
   }
 </style>
