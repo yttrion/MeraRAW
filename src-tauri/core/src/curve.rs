@@ -81,6 +81,38 @@ impl MonotonicCubic {
         Self { xs, ys, ms, first_x, last_x }
     }
 
+    /// Evaluate spline at scene-referred x ∈ [0, ∞).
+    /// For x ≤ first_x: returns first point's y (extended flat for clipping)
+    /// For x ≥ last_x: returns last point's y (extended flat for clipping)
+    /// For x > 1: linear extension from last point (preserves scene headroom)
+    fn eval_scene(&self, x: f32) -> f32 {
+        let n = self.xs.len();
+        if x <= self.xs[0] {
+            return self.ys[0];
+        }
+        if x >= self.xs[n - 1] {
+            // Linear extension beyond last point (slope = last segment slope)
+            if n >= 2 {
+                let last_slope = (self.ys[n - 1] - self.ys[n - 2]) / (self.xs[n - 1] - self.xs[n - 2]).max(1e-6);
+                return self.ys[n - 1] + last_slope * (x - self.xs[n - 1]);
+            }
+            return self.ys[n - 1];
+        }
+        let mut i = 0;
+        while i < n - 2 && x > self.xs[i + 1] {
+            i += 1;
+        }
+        let h = (self.xs[i + 1] - self.xs[i]).max(1e-6);
+        let t = (x - self.xs[i]) / h;
+        let t2 = t * t;
+        let t3 = t2 * t;
+        let h00 = 2.0 * t3 - 3.0 * t2 + 1.0;
+        let h10 = t3 - 2.0 * t2 + t;
+        let h01 = -2.0 * t3 + 3.0 * t2;
+        let h11 = t3 - t2;
+        h00 * self.ys[i] + h10 * h * self.ms[i] + h01 * self.ys[i + 1] + h11 * h * self.ms[i + 1]
+    }
+
     /// Evaluate spline at x ∈ [0,1].
     /// For x ≤ first_x: returns first point's y (extended flat for clipping)
     /// For x ≥ last_x: returns last point's y (extended flat for clipping)
@@ -260,7 +292,11 @@ pub struct ToneParams {
 }
 
 pub fn is_identity(points: &[[f32; 2]], p: &ToneParams) -> bool {
-    points.is_empty() && *p == ToneParams::default()
+    let pts_empty = points.is_empty();
+    let pts_identity = points.len() == 2
+        && points[0][0] == 0.0 && points[0][1] == 0.0
+        && points[1][0] == 1.0 && points[1][1] == 1.0;
+    (pts_empty || pts_identity) && *p == ToneParams::default()
 }
 
 /// Whether the tone-curve GPU pass should run (any channel or parametric active).
@@ -274,10 +310,11 @@ pub fn should_run(
     !r.is_empty() || !g.is_empty() || !b.is_empty() || !is_identity(rgb, p)
 }
 
-/// Identity ramp for an unused LUT slot.
+/// Identity ramp for an unused LUT slot. Clamped to 0.9995 so the
+/// shader's y/(1-y) un-compression stays finite.
 pub fn identity_lut() -> Vec<f32> {
     (0..LUT_SIZE)
-        .map(|i| i as f32 / (LUT_SIZE - 1) as f32)
+        .map(|i| (i as f32 / (LUT_SIZE - 1) as f32).min(0.9995))
         .collect()
 }
 
@@ -304,60 +341,77 @@ pub fn apply_sigmoid(lut: &mut [f32], amount: f32) {
 /// all input values above that x map to output 1 (white clip).
 ///
 /// User points are in scene-referred [0,1] (1 = reference white).
-/// Convert BOTH x and y to compressed domain for the shader:
-///   t = x/(1+x)  (compressed input)
-///   y_c = y/(1+y)  (compressed output)
+/// Spline is built in scene domain; LUT stores compressed outputs y_c = y/(1+y)
+/// at compressed inputs t = x/(1+x). Neutral points (x=y) produce exact identity.
 fn scene_to_compressed(v: f32) -> f32 {
     v / (1.0 + v)
 }
 
 pub fn build_lut(points: &[[f32; 2]], p: &ToneParams) -> Vec<f32> {
-    // Convert user points from scene-referred to compressed domain
-    let compressed_points: Vec<[f32; 2]> = points
-        .iter()
-        .map(|&[x, y]| [scene_to_compressed(x), scene_to_compressed(y)])
-        .collect();
+    // Identity fast-path: no points AND no parametric adjustments
+    if points.is_empty() && *p == ToneParams::default() {
+        return identity_lut();
+    }
 
-    let base: Option<MonotonicCubic> = if compressed_points.is_empty() {
+    // Clipping decision uses original scene-referred coordinates
+    let clip_black = !points.is_empty() && points[0][0] > 0.0;
+    let clip_white = !points.is_empty() && points[points.len() - 1][0] < 1.0;
+
+    // Build spline in scene domain (user points as-is)
+    let base: Option<MonotonicCubic> = if points.is_empty() {
         None
     } else {
-        Some(MonotonicCubic::new(compressed_points))
+        Some(MonotonicCubic::new(points.to_vec()))
     };
 
     let first_x = base.as_ref().map(|c| c.first_x()).unwrap_or(0.0);
     let last_x = base.as_ref().map(|c| c.last_x()).unwrap_or(1.0);
 
-    // Only apply clipping if user explicitly moved endpoints away from 0/1
-    let clip_black = first_x > 0.0;
-    let clip_white = last_x < 1.0;
+    // Clipping thresholds in compressed domain
+    let clip_black = !points.is_empty() && points[0][0] > 0.0;
+    let clip_white = !points.is_empty() && points[points.len() - 1][0] < 1.0;
+    let first_x_compressed = scene_to_compressed(first_x);
+    let last_x_compressed = scene_to_compressed(last_x);
 
     let mut lut = Vec::with_capacity(LUT_SIZE);
-    // parametric region deltas (pinned placement; max shift 0.12)
     const SCALE: f32 = 0.12 / 100.0;
 
     for i in 0..LUT_SIZE {
         let t = i as f32 / (LUT_SIZE - 1) as f32;
 
-        // --- CLIPPING LOGIC ---
-        // Below first_x: hard clip to 0 (black) — only if user moved first point right
-        // Above last_x: hard clip to 1 (white) — only if user moved last point left
-        // Between: normal curve evaluation (clamped to 0.9995 for shader safety)
-        let v = if clip_black && t <= first_x {
+        // --- CLIPPING LOGIC (in compressed domain, thresholds from scene) ---
+        let v = if clip_black && t <= first_x_compressed {
             0.0
-        } else if clip_white && t >= last_x {
+        } else if clip_white && t >= last_x_compressed {
             1.0
         } else {
-            let region_t = scene_region_t(t);
-            let mut v = match &base {
-                Some(c) => c.eval(t).clamp(0.0, 1.0),
-                None => t,
+            // Convert compressed input t to scene-referred x
+            let x = if t >= 0.5 {
+                t / (1.0 - t).max(1e-6)
+            } else {
+                t / (1.0 - t)
             };
-            v += p.shadows * SCALE * region_w(region_t, 0.125, 0.25)
+
+            // Evaluate user curve in scene domain
+            let y_scene = match &base {
+                Some(c) => c.eval_scene(x),
+                None => x,
+            };
+
+            // Convert to compressed domain
+            let mut y_c = scene_to_compressed(y_scene);
+
+            // Apply parametric region deltas in compressed space (like original)
+            let region_t = scene_region_t(t);
+            y_c += p.shadows * SCALE * region_w(region_t, 0.125, 0.25)
                 + p.darks * SCALE * region_w(region_t, 0.30, 0.40)
                 + p.lights * SCALE * region_w(region_t, 0.70, 0.40)
                 + p.highlights * SCALE * region_w(region_t, 0.875, 0.25);
-            v = contrast_curve(v.clamp(0.0, 1.0), p.contrast);
-            v.clamp(0.0, 0.9995)
+
+            // Apply contrast in compressed space
+            y_c = contrast_curve(y_c, p.contrast);
+
+            y_c.clamp(0.0, 0.9995)
         };
         lut.push(v);
     }
@@ -415,12 +469,17 @@ mod tests {
 
     #[test]
     fn point_curve_passes_through_points() {
+        // Points are in scene domain: [0.5, 0.7] means at scene x=0.5, output y=0.7
+        // Compressed: t = 0.5/(1+0.5) = 0.333..., y_c = 0.7/(1+0.7) = 0.411...
         let lut = build_lut(
             &[[0.0, 0.0], [0.5, 0.7], [1.0, 1.0]],
             &ToneParams::default(),
         );
-        let mid = lut[LUT_SIZE / 2];
-        assert!((mid - 0.7).abs() < 0.01, "mid={mid}");
+        // Check at compressed t corresponding to scene x=0.5
+        let t = 0.5 / 1.5; // 0.333...
+        let idx = (t * (LUT_SIZE - 1) as f32) as usize;
+        let expected_yc = 0.7 / 1.7; // 0.411...
+        assert!((lut[idx] - expected_yc).abs() < 0.01, "lut[{idx}]={} expected ~{}", lut[idx], expected_yc);
     }
 
     #[test]
@@ -480,12 +539,13 @@ mod tests {
 
     #[test]
     fn black_clip_first_point_x_gt_zero() {
-        // First point at x=0.1, y=0.2 → everything below 0.1 maps to 0
+        // First point at scene x=0.1, y=0.2 → everything below scene x=0.1 maps to 0
+        // Compressed threshold: 0.1/1.1 ≈ 0.0909
         let lut = build_lut(
             &[[0.1, 0.2], [0.5, 0.5], [1.0, 1.0]],
             &ToneParams::default(),
         );
-        // t=0.05 (below first_x=0.1) should be clipped to 0
+        // t=0.05 (below compressed first_x ≈ 0.0909) should be clipped to 0
         let idx = (0.05 * (LUT_SIZE - 1) as f32) as usize;
         assert_eq!(lut[idx], 0.0, "black clip at t=0.05");
 
@@ -496,34 +556,35 @@ mod tests {
 
     #[test]
     fn white_clip_last_point_x_lt_one() {
-        // Last point at x=0.9, y=0.8 → everything above 0.9 maps to 1
+        // Last point at scene x=0.9, y=0.8 → everything above scene x=0.9 maps to 1
+        // Compressed threshold: 0.9/1.9 ≈ 0.473
         let lut = build_lut(
             &[[0.0, 0.0], [0.5, 0.5], [0.9, 0.8]],
             &ToneParams::default(),
         );
-        // t=0.95 (above last_x=0.9) should be clipped to 1
+        // t=0.95 (above compressed last_x ≈ 0.473) should be clipped to 1
         let idx = (0.95 * (LUT_SIZE - 1) as f32) as usize;
         assert!((lut[idx] - 1.0).abs() < 1e-5, "white clip at t=0.95");
 
-        // t=0.85 (below last_x) should be on curve
-        let idx2 = (0.85 * (LUT_SIZE - 1) as f32) as usize;
+        // t=0.3 (scene x ≈ 0.43, below last_x) should be on curve
+        let idx2 = (0.3 * (LUT_SIZE - 1) as f32) as usize;
         assert!(lut[idx2] < 1.0, "below last_x follows curve");
     }
 
     #[test]
     fn both_clips_active() {
-        // First at x=0.1, last at x=0.9
+        // First at scene x=0.1 (compressed ≈ 0.0909), last at scene x=0.9 (compressed ≈ 0.473)
         let lut = build_lut(
             &[[0.1, 0.1], [0.5, 0.5], [0.9, 0.9]],
             &ToneParams::default(),
         );
-        // Below 0.1 → 0
+        // Below compressed 0.0909 → 0
         assert_eq!(lut[(0.05 * (LUT_SIZE - 1) as f32) as usize], 0.0);
-        // Above 0.9 → 1
+        // Above compressed 0.473 → 1
         assert!((lut[(0.95 * (LUT_SIZE - 1) as f32) as usize] - 1.0).abs() < 1e-5);
-        // Middle follows curve
-        let mid = lut[LUT_SIZE / 2];
-        assert!((mid - 0.5).abs() < 0.02);
+        // Middle (scene x=0.5, compressed ≈ 0.333) follows curve
+        let mid = lut[LUT_SIZE / 3]; // t ≈ 0.333
+        assert!((mid - 0.5/1.5).abs() < 0.02); // y_c = 0.5/1.5 ≈ 0.333
     }
 
     #[test]

@@ -64,11 +64,8 @@
     "active": true,
     "targets": [
       "app",
-      "dmg",
       "nsis",
-      "deb",
-      "appimage",
-      "rpm"
+      "appimage"
     ],
     "category": "Photography",
     "icon": [

@@ -308,7 +308,7 @@
         <circle
           cx={p.x * 256}
           cy={(1 - p.y) * 256}
-          r={draggedIndex === i ? 5.5 : selectedPointIndex === i ? 5.5 : 4}
+          r={draggedIndex === i ? 5.775 : selectedPointIndex === i ? 5.775 : 4.2}
           class="cursor-pointer fill-fg stroke-black/60 stroke-[1.5px] transition-all duration-100 hover:fill-[#a8a8a8] active:fill-[#8c8c8c]"
           onpointerdown={(e) => startDrag(e, i)}
           onclick={(e) => {
@@ -411,6 +411,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    align-items: center;
   }
   .point-inputs span {
     color: var(--color-subtle);
@@ -418,6 +419,7 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     font-size: 10px;
+    text-align: center;
   }
   .point-inputs input {
     width: 60px;

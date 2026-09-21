@@ -826,4 +826,24 @@ mod tests {
         assert!(matches!(configs[10], NodeConfig::Run { .. }));
         assert_eq!(std::mem::size_of::<EffectsU>() % 16, 0);
     }
+
+    #[test]
+    fn tone_curve_enabled_no_points_skips() {
+        let mut doc = EditDoc::new("/x.ARW");
+        doc.set("tone_curve", "enabled", ParamValue::F32(1.0));
+        let configs = node_configs(&doc, 5200.0, 10, 10, None);
+        // tone_curve is at index 7 in NODES
+        assert!(matches!(configs[7], NodeConfig::Skip), "tone_curve should skip when enabled but no points");
+    }
+
+    #[test]
+    fn tone_curve_identity_points_skips() {
+        let mut doc = EditDoc::new("/x.ARW");
+        doc.set("tone_curve", "enabled", ParamValue::F32(1.0));
+        // Identity points (what UI might save)
+        doc.set("tone_curve", "points", ParamValue::Curve(vec![[0.0, 0.0], [1.0, 1.0]]));
+        let configs = node_configs(&doc, 5200.0, 10, 10, None);
+        // tone_curve is at index 7 in NODES
+        assert!(matches!(configs[7], NodeConfig::Skip), "tone_curve should skip with identity points");
+    }
 }
