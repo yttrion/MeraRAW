@@ -310,11 +310,12 @@ pub fn should_run(
     !r.is_empty() || !g.is_empty() || !b.is_empty() || !is_identity(rgb, p)
 }
 
-/// Identity ramp for an unused LUT slot. Clamped to 0.9995 so the
-/// shader's y/(1-y) un-compression stays finite.
+/// Identity ramp for an unused LUT slot. Exact 1.0 at the end so the
+/// shader's y/(1-y) recovers x perfectly; max(1-y, 5e-4) protects
+/// non-identity LUTs where the curve might exceed 1.0.
 pub fn identity_lut() -> Vec<f32> {
     (0..LUT_SIZE)
-        .map(|i| (i as f32 / (LUT_SIZE - 1) as f32).min(0.9995))
+        .map(|i| i as f32 / (LUT_SIZE - 1) as f32)
         .collect()
 }
 
@@ -433,7 +434,7 @@ mod tests {
         let lut = build_lut(&[], &ToneParams::default());
         for (i, v) in lut.iter().enumerate() {
             let t = i as f32 / (LUT_SIZE - 1) as f32;
-            assert!((v - t.min(0.9995)).abs() < 1e-5, "lut[{i}]={v} t={t}");
+            assert!((v - t).abs() < 1e-5, "lut[{i}]={v} t={t}");
         }
     }
 
