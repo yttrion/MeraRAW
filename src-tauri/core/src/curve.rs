@@ -304,16 +304,18 @@ pub fn apply_sigmoid(lut: &mut [f32], amount: f32) {
 /// all input values above that x map to output 1 (white clip).
 ///
 /// User points are in scene-referred [0,1] (1 = reference white).
-/// Convert outputs to compressed domain y/(1+y) for the shader.
-fn scene_to_compressed(y: f32) -> f32 {
-    y / (1.0 + y)
+/// Convert BOTH x and y to compressed domain for the shader:
+///   t = x/(1+x)  (compressed input)
+///   y_c = y/(1+y)  (compressed output)
+fn scene_to_compressed(v: f32) -> f32 {
+    v / (1.0 + v)
 }
 
 pub fn build_lut(points: &[[f32; 2]], p: &ToneParams) -> Vec<f32> {
     // Convert user points from scene-referred to compressed domain
     let compressed_points: Vec<[f32; 2]> = points
         .iter()
-        .map(|&[x, y]| [x, scene_to_compressed(y)])
+        .map(|&[x, y]| [scene_to_compressed(x), scene_to_compressed(y)])
         .collect();
 
     let base: Option<MonotonicCubic> = if compressed_points.is_empty() {
