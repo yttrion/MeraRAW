@@ -581,17 +581,17 @@ pub fn node_configs(
         } else if curve::should_run(&rgb, &r_pts, &g_pts, &b_pts, &tp) || sigmoid > 0.0 {
             let mut luma = curve::build_lut(&rgb, &tp);
             curve::apply_sigmoid(&mut luma, sigmoid);
-            let r_lut = if r_pts.is_empty() {
+            let r_lut = if curve::points_are_identity(&r_pts) {
                 curve::identity_lut()
             } else {
                 curve::build_lut(&r_pts, &ToneParams::default())
             };
-            let g_lut = if g_pts.is_empty() {
+            let g_lut = if curve::points_are_identity(&g_pts) {
                 curve::identity_lut()
             } else {
                 curve::build_lut(&g_pts, &ToneParams::default())
             };
-            let b_lut = if b_pts.is_empty() {
+            let b_lut = if curve::points_are_identity(&b_pts) {
                 curve::identity_lut()
             } else {
                 curve::build_lut(&b_pts, &ToneParams::default())
@@ -605,13 +605,13 @@ pub fn node_configs(
             if !curve::is_identity(&rgb, &tp) || sigmoid > 0.0 {
                 flags |= 1;
             }
-            if !r_pts.is_empty() {
+            if !curve::points_are_identity(&r_pts) {
                 flags |= 2;
             }
-            if !g_pts.is_empty() {
+            if !curve::points_are_identity(&g_pts) {
                 flags |= 4;
             }
-            if !b_pts.is_empty() {
+            if !curve::points_are_identity(&b_pts) {
                 flags |= 8;
             }
             out.push(NodeConfig::Run {

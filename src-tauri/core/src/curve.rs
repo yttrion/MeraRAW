@@ -291,12 +291,15 @@ pub struct ToneParams {
     pub highlights: f32,
 }
 
+pub fn points_are_identity(points: &[[f32; 2]]) -> bool {
+    points.is_empty()
+        || (points.len() == 2
+            && points[0][0] == 0.0 && points[0][1] == 0.0
+            && points[1][0] == 1.0 && points[1][1] == 1.0)
+}
+
 pub fn is_identity(points: &[[f32; 2]], p: &ToneParams) -> bool {
-    let pts_empty = points.is_empty();
-    let pts_identity = points.len() == 2
-        && points[0][0] == 0.0 && points[0][1] == 0.0
-        && points[1][0] == 1.0 && points[1][1] == 1.0;
-    (pts_empty || pts_identity) && *p == ToneParams::default()
+    points_are_identity(points) && *p == ToneParams::default()
 }
 
 /// Whether the tone-curve GPU pass should run (any channel or parametric active).
@@ -307,7 +310,7 @@ pub fn should_run(
     b: &[[f32; 2]],
     p: &ToneParams,
 ) -> bool {
-    !r.is_empty() || !g.is_empty() || !b.is_empty() || !is_identity(rgb, p)
+    !points_are_identity(r) || !points_are_identity(g) || !points_are_identity(b) || !is_identity(rgb, p)
 }
 
 /// Identity ramp for an unused LUT slot. Exact 1.0 at the end so the
