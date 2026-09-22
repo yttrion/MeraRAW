@@ -56,6 +56,11 @@
     channels.find((c) => c.id === $curveChannel)?.stroke || "rgba(255,255,255,0.7)",
   );
 
+  const firstPoint = $derived(activePoints[0]);
+  const lastPoint = $derived(activePoints[activePoints.length - 1]);
+  const firstClipped = $derived(firstPoint.y > 0);
+  const lastClipped = $derived(lastPoint.y < 1);
+
   const splinePath = $derived.by(() => {
     const pts = activePoints;
     if (pts.length === 0) return "";
@@ -79,7 +84,6 @@
   });
 
   let draggedIndex = $state<number | null>(null);
-  let dragAxis = $state<'x' | 'y' | null>(null);
   let dragStartPoint = $state<{ x: number; y: number } | null>(null);
   let dragStartMouse = $state<{ x: number; y: number } | null>(null);
   let selectedPointIndex = $state<number | null>(null);
@@ -108,7 +112,6 @@
     e.preventDefault();
     if ($selectedMask) beginMaskAdjust();
     draggedIndex = index;
-    dragAxis = null;
     dragStartPoint = { ...activePoints[index] };
     dragStartMouse = { x: e.clientX, y: e.clientY };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -126,32 +129,11 @@
     const isFirst = draggedIndex === 0;
     const isLast = draggedIndex === activePoints.length - 1;
 
-    if (isFirst || isLast) {
-      if (dragAxis === null) {
-        const mouseDx = Math.abs(e.clientX - dragStartMouse.x);
-        const mouseDy = Math.abs(e.clientY - dragStartMouse.y);
-        if (mouseDx > 3 || mouseDy > 3) {
-          dragAxis = mouseDx > mouseDy ? 'x' : 'y';
-        }
-      }
-      if (dragAxis === 'x') {
-        pt.y = dragStartPoint.y;
-        if (isFirst) pt.x = Math.max(0, Math.min(0.5, currentX));
-        else pt.x = Math.max(0.5, Math.min(1, currentX));
-      } else if (dragAxis === 'y') {
-        pt.x = dragStartPoint.x;
-        pt.y = Math.max(0, Math.min(1, currentY));
-      } else {
-        // Not decided yet — keep original position
-        pt.x = dragStartPoint.x;
-        pt.y = dragStartPoint.y;
-      }
-    } else {
-      pt.y = Math.max(0, Math.min(1, currentY));
-      const minX = updated[draggedIndex - 1].x + 0.05;
-      const maxX = updated[draggedIndex + 1].x - 0.05;
-      pt.x = Math.max(minX, Math.min(maxX, currentX));
-    }
+    pt.y = Math.max(0, Math.min(1, currentY));
+    const minX = isFirst ? 0 : updated[draggedIndex - 1].x + 0.05;
+    const maxX = isLast ? 1 : updated[draggedIndex + 1].x - 0.05;
+    pt.x = Math.max(minX, Math.min(maxX, currentX));
+
     updated[draggedIndex] = pt;
     pointsByChannel[$curveChannel] = updated;
     // Real-time preview during drag
@@ -168,7 +150,6 @@
         /* ignore */
       }
       draggedIndex = null;
-      dragAxis = null;
       dragStartPoint = null;
       dragStartMouse = null;
       if ($selectedMask) endMaskAdjust();
@@ -225,23 +206,12 @@
 
     if (field === 'x') {
       pt.x = num / 255;
-      // For endpoints, maintain axis constraint
-      if (isFirst) {
-        pt.x = Math.max(0, Math.min(0.5, pt.x));
-        pt.y = 0;
-      } else if (isLast) {
-        pt.x = Math.max(0.5, Math.min(1, pt.x));
-        pt.y = 1;
-      }
+      const minX = isFirst ? 0 : updated[selectedPointIndex - 1].x + 0.05;
+      const maxX = isLast ? 1 : updated[selectedPointIndex + 1].x - 0.05;
+      pt.x = Math.max(minX, Math.min(maxX, pt.x));
     } else {
       pt.y = num / 255;
-      if (isFirst) {
-        pt.x = 0;
-        pt.y = Math.max(0, Math.min(1, pt.y));
-      } else if (isLast) {
-        pt.x = 1;
-        pt.y = Math.max(0, Math.min(1, pt.y));
-      }
+      pt.y = Math.max(0, Math.min(1, pt.y));
     }
     updated[selectedPointIndex] = pt;
     pointsByChannel[$curveChannel] = updated;
@@ -296,6 +266,32 @@
       <line x1="0" y1="64" x2="256" y2="64" stroke="white" stroke-opacity="0.05" stroke-dasharray="2 2" />
       <line x1="0" y1="128" x2="256" y2="128" stroke="white" stroke-opacity="0.05" stroke-dasharray="2 2" />
       <line x1="0" y1="192" x2="256" y2="192" stroke="white" stroke-opacity="0.05" stroke-dasharray="2 2" />
+      {#if firstClipped}
+        <line
+          x1="0"
+          y1={(1 - firstPoint.y) * 256}
+          x2={firstPoint.x * 256}
+          y2={(1 - firstPoint.y) * 256}
+          stroke={activeChannelColor}
+          stroke-width="2"
+          stroke-dasharray="6 3"
+          stroke-linecap="butt"
+          opacity="0.8"
+        />
+      {/if}
+      {#if lastClipped}
+        <line
+          x1={lastPoint.x * 256}
+          y1={(1 - lastPoint.y) * 256}
+          x2="256"
+          y2={(1 - lastPoint.y) * 256}
+          stroke={activeChannelColor}
+          stroke-width="2"
+          stroke-dasharray="6 3"
+          stroke-linecap="butt"
+          opacity="0.8"
+        />
+      {/if}
       <path
         d={splinePath}
         fill="none"
