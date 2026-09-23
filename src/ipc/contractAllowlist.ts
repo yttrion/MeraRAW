@@ -31,7 +31,6 @@ export const DEBUG_COMMANDS = [
   "fail_on_purpose",
   "autoopen_path",
   "selftest_enabled",
-  "live_assistant_enabled",
   "verify_slider_enabled",
   "report_frontend_status",
 ] as const;

@@ -28,7 +28,6 @@ export const EVENTS = {
   viewZoomFit: "view-zoom-fit",
   photoWorkspace: "photo-workspace",
   videoWorkspace: "video-workspace",
-  assistantProgress: "assistant-progress",
   denoiseProgress: "denoise-progress",
   denoiseDone: "denoise-done",
   denoiseError: "denoise-error",
@@ -203,12 +202,4 @@ export function onPhotoWorkspace(cb: () => void): Promise<UnlistenFn> {
 
 export function onVideoWorkspace(cb: () => void): Promise<UnlistenFn> {
   return listen<null>(EVENTS.videoWorkspace, () => cb());
-}
-
-export function onAssistantProgress(
-  cb: (p: { kind: string; label: string }) => void,
-): Promise<UnlistenFn> {
-  return listen<{ kind: string; label: string }>(EVENTS.assistantProgress, (e) =>
-    cb(e.payload),
-  );
 }

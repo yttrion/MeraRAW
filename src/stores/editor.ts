@@ -2,7 +2,7 @@
 // lives in stores/app.ts + stores/doc.ts; params flow via lib/engine/params.
 import { atom, map } from "nanostores";
 
-export type Tool = "edit" | "crop" | "mask" | "ai" | "presets";
+export type Tool = "edit" | "crop" | "mask" | "presets";
 export const activeTool = atom<Tool>("edit");
 
 /** Single source of truth for edit-panel section ids and first-paint open state.
@@ -63,8 +63,8 @@ export const isZenMode = atom<boolean>(false);
 export const imageBrowserCollapsed = atom<boolean>(false);
 export const photoDetailsCollapsed = atom<boolean>(false);
 
-/** Right rail: develop controls vs conversational agent vs local mask edits. */
-export type RightPanelMode = "edit" | "crop" | "ai" | "mask";
+/** Right rail: develop controls vs local mask edits. */
+export type RightPanelMode = "edit" | "crop" | "mask";
 export const rightPanelMode = atom<RightPanelMode>("edit");
 
 /** Jump target for shortcuts / command palette. Scrolls that accordion into view. */

@@ -9,11 +9,6 @@ export async function runDevHarness(imageVersion: number): Promise<void> {
     void runSelfTest(imageVersion, scope);
     return;
   }
-  if (await invoke<boolean>("live_assistant_enabled")) {
-    const { runLiveAssistant } = await import("./liveassistant");
-    void runLiveAssistant();
-    return;
-  }
   if (await invoke<boolean>("verify_slider_enabled").catch(() => false)) {
     const { verifySlider } = await import("./verifyslider");
     void verifySlider();

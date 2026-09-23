@@ -2,7 +2,7 @@
   import { fade, scale } from "svelte/transition";
   import { commandPaletteOpen, leftRailCollapsed, imageBrowserCollapsed, isZenMode } from "../../../stores/editor";
   import { isExportOpen, isSettingsOpen, isShortcutsOpen } from "../../../stores/ui";
-  import { applyEditFocus, showAiPanel } from "../../editor/focus";
+  import { applyEditFocus } from "../../editor/focus";
   import { push } from "svelte-spa-router";
   import { undo, redo } from "../../../ipc/commands";
   import { reconcile } from "../../../stores/doc";
@@ -31,7 +31,6 @@
     { id: "retouch", group: "Edit", label: "Retouch", hint: "4", keywords: "heal spot object removal", photoOnly: true, run: () => applyEditFocus("retouch") },
     { id: "camera", group: "Edit", label: "Camera", keywords: "profile demosaic lut calibration log", run: () => applyEditFocus("camera") },
     { id: "presets", group: "Edit", label: "Presets", hint: "5", run: () => applyEditFocus("presets") },
-    { id: "ai", group: "Edit", label: "Open AI Agent", hint: "6", run: () => showAiPanel() },
     { id: "compare", group: "View", label: "Compare Before / After", hint: shortcutLabels.compare, run: () => window.dispatchEvent(new CustomEvent("meraraw:toggle-compare")) },
     { id: "filmstrip", group: "View", label: "Toggle Filmstrip", hint: shortcutLabels.filmstrip, run: () => imageBrowserCollapsed.set(!imageBrowserCollapsed.get()) },
     { id: "sidebar", group: "View", label: "Toggle Sidebar", hint: shortcutLabels.sidebar, run: () => leftRailCollapsed.set(!leftRailCollapsed.get()) },

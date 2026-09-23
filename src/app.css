@@ -442,36 +442,6 @@ html:not(.glass-look) *::after {
   color: var(--color-fg);
 }
 
-/* ── Agent panel header ──────────────────────────────────
-   37px — denser than a web app bar, matching Pencil. Status
-   colour lives only on the 7px dot. Title is 12px semibold;
-   status + model are 11px --subtle.                         */
-.agent-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: none;
-  height: 37px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--color-border);
-}
-.agent-header .title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-fg);
-}
-.agent-header .status-label,
-.agent-header .model {
-  font-size: 11px;
-  color: var(--color-subtle);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.agent-header .status-label { flex: 1; }
-.agent-header .model { flex: none; }
-
 /* ── Navigation rail ─────────────────────────────────────
    Fixed icon column, flexible label, right-aligned mono count.
    Active = sunken fill + weight 500 + full-contrast text.

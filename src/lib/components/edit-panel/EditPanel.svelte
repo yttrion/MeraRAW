@@ -3,7 +3,7 @@
   import { cubicOut } from "svelte/easing";
   import { histogramOpen, rightPanelMode } from "../../../stores/editor";
   import { imageOpen } from "../../../stores/app";
-  import { applyTool, showAiPanel, showCropPanel, showMaskPanel } from "../../editor/focus";
+  import { applyTool, showCropPanel, showMaskPanel } from "../../editor/focus";
   import {
     colorPickActive,
     stopGeomPlacement,
@@ -20,13 +20,12 @@
   import PresetSettings from "./PresetSettings.svelte";
   import MaskPanel from "./MaskPanel.svelte";
   import Histogram from "../histogram/Histogram.svelte";
-  import AgentPanel from "../shell/AgentPanel.svelte";
   import { workspace } from "../../../stores/workspace";
 
   const isVideo = $derived($workspace === "video");
 
   $effect(() => {
-    if (isVideo && ($rightPanelMode === "ai" || $rightPanelMode === "mask" || $rightPanelMode === "crop")) {
+    if (isVideo && ($rightPanelMode === "mask" || $rightPanelMode === "crop")) {
       rightPanelMode.set("edit");
     }
   });
@@ -81,24 +80,10 @@
       >
         Mask
       </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={$rightPanelMode === "ai"}
-        class="edit-tab"
-        class:is-active={$rightPanelMode === "ai"}
-        onclick={() => showAiPanel()}
-      >
-        AI
-      </button>
-    {/if}
+      {/if}
   </div>
 
-  {#if $rightPanelMode === "ai"}
-    <div class="edit-body" in:fade={{ duration: 160 }}>
-      <AgentPanel embedded />
-    </div>
-  {:else if $rightPanelMode === "crop"}
+  {#if $rightPanelMode === "crop"}
     <div class="hist-dock">
       <button
         type="button"

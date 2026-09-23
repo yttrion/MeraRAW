@@ -32,9 +32,8 @@
         { label: "Focus Light section", key: shortcutLabels.toolEdit },
         { label: "Crop tab (Photo)", key: shortcutLabels.toolCrop },
         { label: "Focus Mask section (Photo)", key: shortcutLabels.toolMask },
-        { label: "Focus Retouch section (Photo)", key: shortcutLabels.toolAi },
+        { label: "Focus Retouch section (Photo)", key: shortcutLabels.toolRetouch },
         { label: "Focus Presets section", key: shortcutLabels.toolPresets },
-        { label: "Open AI Agent", key: shortcutLabels.toolChat },
       ]
     },
     {
