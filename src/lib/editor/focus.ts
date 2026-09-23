@@ -48,10 +48,6 @@ function applyToolNow(id: Tool) {
     const m = mid ? doc.get()?.masks?.find((x) => x.id === mid) : null;
     syncViewportToolForMask(m ?? null);
     syncMaskOverlay();
-  } else if (id === "ai") {
-    selectedMask.set(null);
-    void setMaskOverlay(null);
-    viewportTool.set(selectedRetouch.get() ? "brush" : "pan");
   } else {
     selectedRetouch.set(null);
     selectedMask.set(null);
@@ -81,7 +77,7 @@ export function applyEditFocus(focus: EditFocus) {
     showCropPanel();
   } else if (focus === "retouch") {
     rightPanelMode.set("edit");
-    applyTool("ai");
+    applyTool("edit");
   } else if (focus === "presets") {
     rightPanelMode.set("edit");
     applyTool("presets");
@@ -100,12 +96,6 @@ export function applyEditFocus(focus: EditFocus) {
         ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   }
-}
-
-export function showAiPanel() {
-  rightPanelMode.set("ai");
-  applyTool("edit");
-  window.dispatchEvent(new CustomEvent("meraraw:focus-agent"));
 }
 
 /** Lightroom-style masking rail: tools + scoped adjustments. */

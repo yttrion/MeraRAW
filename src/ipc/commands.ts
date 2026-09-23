@@ -478,14 +478,6 @@ export function reportProblem(message: string, from?: string | null): Promise<vo
   return invoke<void>("report_problem", { message, from: from ?? null });
 }
 
-export function assistantAvailable(): Promise<boolean> {
-  return invoke<boolean>("assistant_available");
-}
-
-export function assistantSend(message: string, mode?: string): Promise<string> {
-  return invoke<string>("assistant_send", { message, mode });
-}
-
 export interface LicenseCheck {
   licensed: boolean;
   userId: string | null;
@@ -542,10 +534,6 @@ export function openExternalUrl(url: string): Promise<void> {
 
 export function selftestEnabled(): Promise<string> {
   return invoke<string>("selftest_enabled");
-}
-
-export function liveAssistantEnabled(): Promise<boolean> {
-  return invoke<boolean>("live_assistant_enabled");
 }
 
 export function verifySliderEnabled(): Promise<boolean> {

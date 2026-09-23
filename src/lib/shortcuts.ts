@@ -1,7 +1,7 @@
 import { push, router } from "svelte-spa-router";
 import { leftRailCollapsed, isZenMode, imageBrowserCollapsed, photoDetailsCollapsed, commandPaletteOpen, rightPanelMode } from "../stores/editor";
 import { isSettingsOpen, isExportOpen, isBugReportOpen, classicLook, isShortcutsOpen } from "../stores/ui";
-import { applyEditFocus, cancelCropTool, leaveCropTool, showAiPanel, showMaskPanel } from "./editor/focus";
+import { applyEditFocus, cancelCropTool, leaveCropTool, showMaskPanel } from "./editor/focus";
 import { applyCropParams } from "../crop/cropActions";
 import { cropWithDraft, flipCropOrientation } from "../crop/cropMath";
 import { cropDraft, markCropGesture, setCropDraft } from "../crop/cropSession";
@@ -351,10 +351,6 @@ export function handleGlobalShortcut(e: KeyboardEvent): void {
     applyEditFocus("presets");
     return;
   }
-  if (key === "6") {
-    showAiPanel();
-    return;
-  }
 
   // ArrowLeft / ArrowRight — frame-step on video, otherwise navigate photos
   if (key === "arrowleft") {
@@ -423,9 +419,8 @@ export const shortcutLabels = {
   toolEdit: "1",
   toolCrop: "2",
   toolMask: "3",
-  toolAi: "4",
+  toolRetouch: "4",
   toolPresets: "5",
-  toolChat: "6",
   prevPhoto: "←",
   nextPhoto: "→",
   openPhoto: "Enter",
