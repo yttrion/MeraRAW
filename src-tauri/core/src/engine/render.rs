@@ -194,8 +194,11 @@ impl Engine {
             .map(|(id, (_, tex))| (id.clone(), tex.create_view(&Default::default())))
             .collect();
         // before/after + Original look: render without saved edits.
+        // Linear (8) runs module chain but skips display transform.
         let base_doc;
-        let render_doc = if self.preview_bypass || self.display_look == 4 {
+        let is_original = self.display_look == 4;
+        let is_linear = self.display_look == 8;
+        let render_doc = if self.preview_bypass || is_original {
             base_doc = EditDoc::new(&cur.path.to_string_lossy());
             &base_doc
         } else {
@@ -209,7 +212,7 @@ impl Engine {
         } else {
             None
         };
-        let lut = if self.display_look == 4 {
+        let lut = if is_original {
             None
         } else {
             cur.lut_cube.clone()

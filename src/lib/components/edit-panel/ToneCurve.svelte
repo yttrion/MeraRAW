@@ -402,6 +402,7 @@
     border: 1px solid var(--color-border);
     border-radius: 6px;
     font-size: var(--text-group);
+    justify-content: center;
   }
   .point-inputs label {
     display: flex;

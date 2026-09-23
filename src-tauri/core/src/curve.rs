@@ -425,6 +425,27 @@ pub fn build_lut(points: &[[f32; 2]], p: &ToneParams) -> Vec<f32> {
             lut[i] = lut[i - 1];
         }
     }
+
+    // DEBUG: Log first few LUT entries for known problematic inputs
+    if !points.is_empty() && points.len() >= 2 && points[0][0] == 0.0 && points[0][1] > 0.0 {
+        tracing::debug!(
+            "ToneCurve LUT for points={:?}: first 10 entries = {:?}, first_x={}, first_x_compressed={}, clip_black={}",
+            points,
+            &lut[..10.min(lut.len())],
+            first_x,
+            first_x_compressed,
+            clip_black
+        );
+        if let Some(c) = &base {
+            tracing::debug!(
+                "MonotonicCubic eval(0.0)={}, first_x={}, first_y={}",
+                c.eval(0.0),
+                c.first_x(),
+                c.eval(c.first_x())
+            );
+        }
+    }
+
     lut
 }
 
@@ -484,6 +505,27 @@ mod tests {
         let idx = (t * (LUT_SIZE - 1) as f32) as usize;
         let expected_yc = 0.7 / 1.7; // 0.411...
         assert!((lut[idx] - expected_yc).abs() < 0.01, "lut[{idx}]={} expected ~{}", lut[idx], expected_yc);
+    }
+
+    #[test]
+    fn first_point_at_25_percent_lifts_shadows_correctly() {
+        // First point at {0, 0.25} should lift blacks to 25% grey
+        // Scene y=0.25 -> compressed y_c = 0.25/1.25 = 0.2
+        let lut = build_lut(
+            &[[0.0, 0.25], [1.0, 1.0]],
+            &ToneParams::default(),
+        );
+        // First LUT entry (t=0) should correspond to y_c = 0.25/1.25 = 0.2
+        assert!((lut[0] - 0.2).abs() < 0.01, "First LUT entry should be 0.2, got {}", lut[0]);
+        
+        // Verify round-trip through shader math: y_c=0.2 -> y=0.2/0.8=0.25
+        let scene_roundtrip = lut[0] / (1.0 - lut[0]).max(5e-4);
+        assert!((scene_roundtrip - 0.25).abs() < 0.01, "Round-trip scene value should be 0.25, got {}", scene_roundtrip);
+        
+        // Verify eval(0.0) returns 0.25
+        let base = MonotonicCubic::new(vec![[0.0, 0.25], [1.0, 1.0]]);
+        assert!((base.eval(0.0) - 0.25).abs() < 0.01, "eval(0.0) should be 0.25");
+        assert!((base.eval_scene(0.0) - 0.25).abs() < 0.01, "eval_scene(0.0) should be 0.25");
     }
 
     #[test]

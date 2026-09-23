@@ -81,7 +81,10 @@ impl Engine {
             // Viewport keys Original off the raw UI look. present_look_for
             // remaps JPEG/PNG look 4 → 3 (passthrough encode) but must still
             // skip edits so export matches the unedited preview.
-            let skip_edits = self.display_look == 4;
+            // Linear (8) runs module chain but skips display transform.
+            let is_original = self.display_look == 4;
+            let is_linear = self.display_look == 8;
+            let skip_edits = is_original;
             let crop_preview = !skip_edits
                 && self.last_view.is_some_and(|v| v.crop_preview);
             let display_look =
@@ -165,7 +168,9 @@ impl Engine {
                 .working
                 .as_ref()
                 .ok_or(CoreError::Engine("decode not finished".into()))?;
-            let skip_edits = self.display_look == 4;
+            let is_original = self.display_look == 4;
+            let is_linear = self.display_look == 8;
+            let skip_edits = is_original;
             let crop_preview = !skip_edits && self.last_view.is_some_and(|v| v.crop_preview);
             let display_look =
                 crate::lut::present_look_for(cur.meta.kind, self.display_look, cur.doc());

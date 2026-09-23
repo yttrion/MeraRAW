@@ -49,7 +49,7 @@ impl ImageKind {
 ///
 /// Look ids (shared with `present.wgsl`):
 ///   0 Neutral Reinhard · 1 Camera punchy · 2 Filmic AgX
-///   3 passthrough (Rec.2020→target + OETF) · 4 Original RAW
+///   3 passthrough (Rec.2020→target + OETF) · 4 Original RAW · 8 Linear/None
 ///
 /// Rendered rasters are already display-referred. Neutral / Camera / Original
 /// must be passthrough so a zero-edit JPEG stays faithful. Filmic (2) stays
@@ -61,6 +61,12 @@ pub fn effective_display_look(kind: ImageKind, user_look: u32) -> u32 {
         ImageKind::Video if user_look != 2 => 3,
         _ => user_look,
     }
+}
+
+/// Linear/None display look (value 8) — bypasses ALL tone mapping including DCP.
+/// Just Rec.2020→target + OETF.
+pub fn is_linear_look(look: u32) -> bool {
+    look == 8
 }
 
 /// Metadata surfaced to the UI + assistant. serde camelCase for the wire.

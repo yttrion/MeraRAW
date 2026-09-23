@@ -7,7 +7,7 @@ struct PresentUniforms {
   width: u32,
   height: u32,
   overlay: f32, // 0 = off; else mask-overlay tint strength
-  look: u32,    // 0 = Neutral, 1 = Camera (punchy)
+  look: u32,    // 0 = Neutral, 1 = Camera (punchy), 2 = Filmic, 3 = Passthrough, 4 = Original, 8 = Linear
   clip_hi: u32, // 1 = highlight blinkies on
   clip_lo: u32, // 1 = shadow blinkies on
   _p0: u32,     // millis for blink pulse
@@ -264,9 +264,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     } else if (u.look == 7u) {
       // Built-in ACR curve only (no on-disk DCP HueSatMap).
       encoded = oetf_srgb(clamp(view_look_dcp_builtin(max(c, vec3<f32>(0.0))), vec3<f32>(0.0), vec3<f32>(1.0)));
-    } else if (u.look == 3u || u.look == 4u) {
+    } else if (u.look == 3u || u.look == 4u || u.look == 8u) {
       // 3 = raster zero-edit (JPEG/PNG already display-referred).
       // 4 = Original RAW (demosaic only). Rec.2020→sRGB + OETF, no view look.
+      // 8 = Linear/None. Rec.2020→sRGB + OETF, no tone mapping.
       encoded = oetf_srgb(clamp(max(c, vec3<f32>(0.0)), vec3<f32>(0.0), vec3<f32>(1.0)));
     } else {
       let looked = view_look(max(c, vec3<f32>(0.0)), u.look);

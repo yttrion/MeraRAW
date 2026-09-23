@@ -568,7 +568,7 @@ impl DcpProfile {
     }
 
     /// DCP HueSatMap + profile tone curve is the Camera display look.
-    /// Neutral / Filmic / Original keep the working master scene-referred.
+    /// Neutral / Filmic / Original / Linear keep the working master scene-referred.
     pub fn applies_to_display_look(look: u32) -> bool {
         look == 1
     }
