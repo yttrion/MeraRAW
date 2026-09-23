@@ -1,0 +1,30 @@
+## Title
+
+{A description of the issue using key words relating to the issue. 50 to 80 characters recommended. Description should cover the problem, the action, and the location (if relevant).}
+
+## Environment
+
+{Detail the specific environment used when the bug was encountered.}
+
+* {Product version or commit}
+* {Product format (.deb, .rpm, .dmg, .appimage etc.)}
+* {Operating system}
+
+## Steps to reproduce the observed behaviour
+
+{An ordered list of the steps taken where the result was encountering the bug. Include any observations of relevance such as unexpected output, visual glitches, unusual process duration.}
+
+* {Step 1}
+* {Step 2}
+* {Step 3}
+
+
+## Expected behavior
+
+{Briefly describe the expected result of the steps taken.}
+
+## Additional context (optional)
+
+{If any additional context is required, detail that context here.}
+
+---

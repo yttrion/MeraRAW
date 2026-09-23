@@ -1129,12 +1129,11 @@ impl Engine {
                         crate::profile::DcpProfile::applies_to_display_look(self.display_look);
                     let now_dcp = crate::profile::DcpProfile::applies_to_display_look(look);
                     self.display_look = look;
-                    // Camera toggles the DCP look path — invalidate so look_tex
-                    // is rebuilt (or skipped) instead of serving a stale extract.
-                    if was_dcp != now_dcp {
-                        if let Some(g) = &mut self.graph {
-                            g.invalidate_all();
-                        }
+                    // Any look change requires re-running the present shader
+                    // (it uses the look uniform). Also invalidate DCP path if
+                    // switching between Camera and non-Camera.
+                    if let Some(g) = &mut self.graph {
+                        g.invalidate_all();
                     }
                     self.render_now();
                 }

@@ -154,7 +154,7 @@ impl RenderGraph {
     }
 
     /// Set the display look (0 = Neutral, 1 = Camera/punchy, 2 = Filmic/AgX,
-    /// 4 = Original — demosaic only, no DCP profile look).
+    /// 4 = Original — demosaic only, no DCP profile look, 8 = Linear/None — no tone mapping).
     pub fn set_look(&mut self, look: u32) {
         self.look = look;
     }

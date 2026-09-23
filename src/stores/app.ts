@@ -30,7 +30,7 @@ export const openingPreviewHint = atom<{
 export const frameVersion = atom(0);
 export const zoomLabel = atom("fit");
 
-/** Display look: 0 Neutral, 1 Camera, 2 Filmic/AgX, 4 Original. */
+/** Display look: 1 Camera, 2 Filmic/AgX, 4 Original, 8 Linear. */
 export const displayLook = atom(1);
 /** Before/after: render the un-edited base when true. */
 export const previewBypass = atom(false);

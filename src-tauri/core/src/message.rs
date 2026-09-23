@@ -304,7 +304,7 @@ pub enum EngineMsg {
         on: bool,
         reply: oneshot::Sender<()>,
     },
-    /// Display look: 0 = Neutral, 1 = Camera/punchy, 2 = Filmic/AgX, 4 = Original.
+    /// Display look: 0 = Neutral, 1 = Camera/punchy, 2 = Filmic/AgX, 4 = Original, 8 = Linear/None.
     SetDisplayLook {
         look: u32,
         reply: oneshot::Sender<()>,

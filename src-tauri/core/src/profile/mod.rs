@@ -410,7 +410,7 @@ fn adobe_camera_profiles_roots() -> Vec<PathBuf> {
 }
 
 fn rawtherapee_dcp_roots() -> Vec<PathBuf> {
-    let mut roots = Vec::new();
+    let roots = Vec::new();
     #[cfg(target_os = "macos")]
     {
         let p = PathBuf::from(

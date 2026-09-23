@@ -19,9 +19,7 @@
   let emailEl = $state<HTMLInputElement | null>(null);
   let codeEl = $state<HTMLInputElement | null>(null);
 
-  const needsGate = $derived(
-    inTauri && $licenseStatus !== null && $licenseStatus.licensed === false,
-  );
+  const needsGate = $derived(false);
   const resendWait = $derived(Math.max(0, Math.ceil((resendAt - now) / 1000)));
 
   $effect(() => {
