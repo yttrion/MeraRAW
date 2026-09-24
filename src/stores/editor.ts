@@ -58,7 +58,7 @@ export const toggleSection = (id: SectionId) =>
 export type CurveChannel = "luma" | "red" | "green" | "blue";
 export const curveChannel = atom<CurveChannel>("luma");
 
-export const leftRailCollapsed = atom<boolean>(false);
+export const leftRailCollapsed = atom<boolean>(true);
 export const isZenMode = atom<boolean>(false);
 export const imageBrowserCollapsed = atom<boolean>(false);
 export const photoDetailsCollapsed = atom<boolean>(false);

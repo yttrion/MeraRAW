@@ -1,6 +1,6 @@
 <script lang="ts">
   import { lastOpenedPath } from "../../../stores/app";
-  import { openLibraryFile, sameFolderPath } from "../../../stores/browse";
+  import { openLibraryFile, loadFolder, sameFolderPath } from "../../../stores/browse";
   import { listFolderChildren } from "../../../ipc/commands";
   import type { FolderChild } from "../../../ipc/types";
   import FolderNode from "./FolderNode.svelte";
@@ -91,6 +91,11 @@
         void toggle();
       }
     } else {
+      // Load parent folder so filmstrip shows all images in that folder
+      const parentPath = path.replace(/\\/g, "/").replace(/\/[^/]+$/, "");
+      if (parentPath) {
+        void loadFolder(parentPath);
+      }
       void openLibraryFile(path);
     }
   }
