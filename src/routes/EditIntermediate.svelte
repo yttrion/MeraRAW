@@ -14,6 +14,7 @@
 
   $effect(() => {
     adoptWorkspaceFromRoute(router.location);
+    leftRailCollapsed.set(true);
   });
 
   let windowWidth = $state(0);

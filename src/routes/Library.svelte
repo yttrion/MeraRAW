@@ -39,6 +39,7 @@
 
   $effect(() => {
     adoptWorkspaceFromRoute(router.location);
+    leftRailCollapsed.set(false);
   });
 
   const isVideo = $derived($workspace === "video");
@@ -215,13 +216,10 @@
   async function openPhoto(photo: GridItem) {
     selectedKey = gridKey(photo);
     await browseOpenPhoto(photo);
-    if (typeof document !== "undefined" && (document as any).startViewTransition) {
-      (document as any).startViewTransition(() => {
-        push(editorRoute());
-      });
-    } else {
-      push(editorRoute());
-    }
+    // browseOpenPhoto already navigates to edit route via openPath;
+    // push again with startViewTransition can crash on Linux WebKitGTK.
+    // Use a plain push since navigation already completed.
+    push(editorRoute());
   }
 
   async function ratePhoto(photo: GridItem, rating: number, e: MouseEvent) {
